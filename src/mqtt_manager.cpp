@@ -45,6 +45,11 @@ static bool _currentDoorClosed = true;
 static bool     _inTransit       = false;
 static bool     _transitOpening  = false;   // true = opening, false = closing
 static uint32_t _transitStart    = 0;
+static bool     _transitStartDoorClosed = true;  // reed-switch state when transit began
+
+// Stopped mid-travel tracking (single-button door reverses direction on next press)
+static bool     _stopped            = false;
+static bool     _stoppedWasOpening  = false;  // true = was opening before stop
 
 // Publish-failure retry
 static bool _pendingStatePublish = false;
@@ -160,13 +165,23 @@ void MqttManager::publishState(bool doorClosed, bool force) {
 
     const char* state;
     if (_inTransit) {
-        bool arrived = _transitOpening ? !doorClosed : doorClosed;
+        bool stateChanged = (doorClosed != _transitStartDoorClosed);
+        bool arrived = (_transitOpening ? !doorClosed : doorClosed) && stateChanged;
         if (arrived) {
             _inTransit = false;
             state = doorClosed ? "closed" : "open";
             DEBUG_PRINTF("Door arrived → %s\n", state);
         } else {
             state = _transitOpening ? "opening" : "closing";
+        }
+    } else if (_stopped) {
+        if (doorClosed) {
+            // Reed switch says closed — door was closed (e.g. wall button)
+            _stopped = false;
+            state = "closed";
+            DEBUG_PRINTLN("Door closed while stopped → clearing stopped state");
+        } else {
+            state = "stopped";
         }
     } else {
         state = doorClosed ? "closed" : "open";
@@ -197,6 +212,8 @@ void MqttManager::setTransitState(bool wasClosedBeforeCommand) {
     _inTransit      = true;
     _transitOpening = wasClosedBeforeCommand;
     _transitStart   = millis();
+    _transitStartDoorClosed = _currentDoorClosed;
+    _stopped        = false;
 
     const char* state = _transitOpening ? "opening" : "closing";
     DEBUG_PRINTF("Transit state → %s\n", state);
@@ -266,6 +283,7 @@ static void publishDiscovery() {
     doc["state_closed"]           = "closed";
     doc["state_opening"]          = "opening";
     doc["state_closing"]          = "closing";
+    doc["state_stopped"]          = "stopped";
     doc["json_attributes_topic"]  = TOPIC_ATTRIBUTES;
     doc["retain"]                 = true;
 
@@ -317,30 +335,48 @@ static void onMessage(char* topic, byte* payload, unsigned int length) {
     if (strcmp(topic, TOPIC_COMMAND) != 0) return;
 
     if (strcmp(msg, "OPEN") == 0) {
-        if (_currentDoorClosed) {
+        if (_currentDoorClosed && !_inTransit) {
             DEBUG_PRINTLN("Command: OPEN → triggering relay");
             if (GarageHardware::triggerRelay()) {
                 MqttManager::setTransitState(true);
             }
+        } else if (_stopped && !_stoppedWasOpening) {
+            // Stopped while closing → single-button reverses → opens
+            DEBUG_PRINTLN("Command: OPEN (stopped, was closing) → triggering relay");
+            if (GarageHardware::triggerRelay()) {
+                MqttManager::setTransitState(true);
+            }
         } else {
-            DEBUG_PRINTLN("Command: OPEN → door already open, ignoring");
+            DEBUG_PRINTLN("Command: OPEN → ignoring (already open/opening or can't open)");
         }
     }
     else if (strcmp(msg, "CLOSE") == 0) {
-        if (!_currentDoorClosed) {
+        if (!_currentDoorClosed && !_inTransit && !_stopped) {
             DEBUG_PRINTLN("Command: CLOSE → triggering relay");
             if (GarageHardware::triggerRelay()) {
                 MqttManager::setTransitState(false);
             }
+        } else if (_stopped && _stoppedWasOpening) {
+            // Stopped while opening → single-button reverses → closes
+            DEBUG_PRINTLN("Command: CLOSE (stopped, was opening) → triggering relay");
+            if (GarageHardware::triggerRelay()) {
+                MqttManager::setTransitState(false);
+            }
         } else {
-            DEBUG_PRINTLN("Command: CLOSE → door already closed, ignoring");
+            DEBUG_PRINTLN("Command: CLOSE → ignoring (already closed/closing or can't close)");
         }
     }
     else if (strcmp(msg, "STOP") == 0) {
-        DEBUG_PRINTLN("Command: STOP → triggering relay");
-        if (GarageHardware::triggerRelay(true)) {   // force=true bypasses cooldown
-            _inTransit = false;
-            MqttManager::publishState(_currentDoorClosed, true);
+        if (_inTransit) {
+            DEBUG_PRINTLN("Command: STOP → triggering relay");
+            if (GarageHardware::triggerRelay(true)) {   // force=true bypasses cooldown
+                _stoppedWasOpening = _transitOpening;
+                _inTransit = false;
+                _stopped = true;
+                MqttManager::publishState(_currentDoorClosed, true);
+            }
+        } else {
+            DEBUG_PRINTLN("Command: STOP → not in transit, ignoring");
         }
     }
 }
