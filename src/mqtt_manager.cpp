@@ -335,7 +335,7 @@ static void onMessage(char* topic, byte* payload, unsigned int length) {
     if (strcmp(topic, TOPIC_COMMAND) != 0) return;
 
     if (strcmp(msg, "OPEN") == 0) {
-        if (_currentDoorClosed && !_inTransit) {
+        if (_currentDoorClosed && !_inTransit && !_stopped) {
             DEBUG_PRINTLN("Command: OPEN → triggering relay");
             if (GarageHardware::triggerRelay()) {
                 MqttManager::setTransitState(true);
