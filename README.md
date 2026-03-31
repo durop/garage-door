@@ -287,6 +287,49 @@ and current firmware version.
 
 ---
 
+## Tests
+
+The project includes native (desktop) unit tests that verify core logic without
+requiring hardware.  Tests are written with the
+[Unity](https://github.com/ThrowTheSwitch/Unity) test framework and run on your
+host machine.
+
+### Running tests with PlatformIO
+
+```bash
+pio test -e native
+```
+
+### Running tests without PlatformIO
+
+If you prefer plain g++:
+
+```bash
+# Clone Unity (one-time)
+git clone --depth 1 https://github.com/ThrowTheSwitch/Unity.git /tmp/Unity
+
+# Garage hardware tests
+g++ -std=c++17 -Itest/mocks -Iinclude -I/tmp/Unity/src -DUNIT_TEST \
+    -o /tmp/test_garage_hardware \
+    test/test_garage_hardware/test_main.cpp /tmp/Unity/src/unity.c && \
+    /tmp/test_garage_hardware
+
+# State / debounce logic tests
+g++ -std=c++17 -I/tmp/Unity/src -DUNIT_TEST \
+    -o /tmp/test_state_logic \
+    test/test_state_logic/test_main.cpp /tmp/Unity/src/unity.c && \
+    /tmp/test_state_logic
+```
+
+### Test overview
+
+| Suite | Tests | What it covers |
+|---|---|---|
+| `test_garage_hardware` | 24 | Pin init, reed-switch reading, relay trigger/cooldown/force, relay pulse management, LED pattern engine (off/solid/fast/slow/heartbeat), blocking blink helper |
+| `test_state_logic` | 15 | Door state determination (open/closed/opening/closing), transit arrival detection, debounce algorithm (stable, bounce rejection, timer reset, multi-transition) |
+
+---
+
 ## License
 
 MIT — do whatever you want with it. 🏠🚗
