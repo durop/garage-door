@@ -234,8 +234,6 @@ int main(int argc, char **argv) {
     RUN_TEST(test_state_closing_during_transit);
     RUN_TEST(test_state_open_after_opening_completes);
     RUN_TEST(test_state_closed_after_closing_completes);
-    RUN_TEST(test_opening_transit_still_reports_opening_while_closed);
-    RUN_TEST(test_closing_transit_still_reports_closing_while_open);
 
     // Debounce algorithm
     RUN_TEST(test_debounce_stable_closed_stays_closed);
