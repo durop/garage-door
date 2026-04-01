@@ -3,6 +3,10 @@
 A DIY garage door opener/closer using an **ESP32-C3 Mini**, a **reed switch**, and a
 **relay module**, connected to **Home Assistant** via MQTT auto-discovery.
 
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/durop)
+
+If you open the Buy Me a Coffee page on your phone, you can pay with **Google Pay** or **Apple Pay**.
+
 ---
 
 ## Features
@@ -284,6 +288,60 @@ and current firmware version.
 | 4 | Reed switch input | Internal pull-up enabled |
 | 5 | Relay output | HIGH = relay ON |
 | 8 | Status LED | Active-low on most C3 Mini boards |
+
+---
+
+## Tests
+
+The project includes native (desktop) unit tests that verify core logic without
+requiring hardware.  Tests are written with the
+[Unity](https://github.com/ThrowTheSwitch/Unity) test framework and run on your
+host machine.
+
+### Running tests with PlatformIO
+
+```bash
+pio test -e native
+```
+
+### PlatformIO VS Code Test button note
+
+The global **Test** button in the PlatformIO extension may not detect these tests
+in this project layout. If that happens, run tests with:
+
+```bash
+pio test -e native
+```
+
+Or run tests from the **native** environment entry in the PlatformIO panel.
+
+### Running tests without PlatformIO
+
+If you prefer plain g++:
+
+```bash
+# Clone Unity (one-time)
+git clone --depth 1 https://github.com/ThrowTheSwitch/Unity.git /tmp/Unity
+
+# Garage hardware tests
+g++ -std=c++17 -Itest/mocks -Iinclude -I/tmp/Unity/src -DUNIT_TEST \
+    -o /tmp/test_garage_hardware \
+    test/test_garage_hardware/test_main.cpp /tmp/Unity/src/unity.c && \
+    /tmp/test_garage_hardware
+
+# State / debounce logic tests
+g++ -std=c++17 -I/tmp/Unity/src -DUNIT_TEST \
+    -o /tmp/test_state_logic \
+    test/test_state_logic/test_main.cpp /tmp/Unity/src/unity.c && \
+    /tmp/test_state_logic
+```
+
+### Test overview
+
+| Suite | Tests | What it covers |
+|---|---|---|
+| `test_garage_hardware` | 24 | Pin init, reed-switch reading, relay trigger/cooldown/force, relay pulse management, LED pattern engine (off/solid/fast/slow/heartbeat), blocking blink helper |
+| `test_state_logic` | 15 | Door state determination (open/closed/opening/closing), transit arrival detection, debounce algorithm (stable, bounce rejection, timer reset, multi-transition) |
 
 ---
 

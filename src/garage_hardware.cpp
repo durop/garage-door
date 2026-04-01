@@ -37,6 +37,16 @@ static void setLedRaw(bool on) {
 }
 
 void init() {
+    // Reset internal state so init() is deterministic across boots and tests.
+    _relayActive     = false;
+    _relayStartTime  = 0;
+    _lastTriggerTime = 0;
+
+    _ledPattern    = LedPattern::OFF;
+    _ledPhaseStart = millis();
+    _ledPhaseIndex = 0;
+    _ledOn         = false;
+
     pinMode(PIN_REED_SWITCH, INPUT_PULLUP);
 
     pinMode(PIN_RELAY, OUTPUT);
