@@ -1,18 +1,15 @@
 // ============================================================
 //  Unit tests for door state logic
-//  ─ Tests the state-determination and debounce algorithms
-//    extracted from mqtt_manager.cpp and main.cpp
-// ============================================================
-//
-//  These tests exercise the pure logic without needing MQTT,
-//  WiFi, or hardware mocks.  The algorithms are reproduced here
-//  exactly as they appear in the firmware so regressions in the
-//  logic can be caught without complex integration mocking.
+//  ─ Tests the shared state-determination and debounce helpers
+//    used by mqtt_manager.cpp and main.cpp
 // ============================================================
 
 #include <cstdint>
 #include <cstring>
 #include <unity.h>
+
+#include "door_state.h"
+#include "debounce.h"
 
 void setUp(void)    {}
 void tearDown(void) {}
@@ -21,31 +18,8 @@ void tearDown(void) {}
 static const uint32_t DEBOUNCE_MS = 200;
 
 // ═════════════════════════════════════════════════════════════
-//  Door state determination (from mqtt_manager.cpp publishState)
+//  Door state determination (shared determineDoorState())
 // ═════════════════════════════════════════════════════════════
-
-/// Pure function equivalent of the state-determination block
-/// inside MqttManager::publishState().
-/// Returns "open", "closed", "opening", or "closing".
-/// Sets `transitCompleted` to true when the door has arrived.
-static const char* determineDoorState(
-    bool doorClosed,
-    bool inTransit,
-    bool transitOpening,
-    bool &transitCompleted)
-{
-    transitCompleted = false;
-
-    if (inTransit) {
-        bool arrived = transitOpening ? !doorClosed : doorClosed;
-        if (arrived) {
-            transitCompleted = true;
-            return doorClosed ? "closed" : "open";
-        }
-        return transitOpening ? "opening" : "closing";
-    }
-    return doorClosed ? "closed" : "open";
-}
 
 // ─── Basic states (no transit) ──────────────────────────────
 
@@ -95,35 +69,27 @@ void test_state_closed_after_closing_completes(void) {
     TEST_ASSERT_TRUE(tc);
 }
 
-// ─── Edge: transit flag set but door somehow already in target state ──
+// ─── Edge: transitOpening set while not actually in transit ──────────
 
-void test_opening_transit_still_reports_opening_while_closed(void) {
+void test_state_closed_ignores_transit_flag_when_not_in_transit(void) {
     bool tc;
-    // Door is closed, transit says opening → not arrived yet
-    const char* s = determineDoorState(true, true, true, tc);
-    TEST_ASSERT_EQUAL_STRING("opening", s);
+    // Door is closed, inTransit is false, transitOpening flag should be ignored
+    const char* s = determineDoorState(true, false, true, tc);
+    TEST_ASSERT_EQUAL_STRING("closed", s);
     TEST_ASSERT_FALSE(tc);
 }
 
-void test_closing_transit_still_reports_closing_while_open(void) {
+void test_state_open_ignores_transit_flag_when_not_in_transit(void) {
     bool tc;
-    // Door is open, transit says closing → not arrived yet
-    const char* s = determineDoorState(false, true, false, tc);
-    TEST_ASSERT_EQUAL_STRING("closing", s);
+    // Door is open, inTransit is false, transitOpening flag should be ignored
+    const char* s = determineDoorState(false, false, true, tc);
+    TEST_ASSERT_EQUAL_STRING("open", s);
     TEST_ASSERT_FALSE(tc);
 }
 
 // ═════════════════════════════════════════════════════════════
-//  Debounce algorithm (from main.cpp loop)
+//  Debounce algorithm (shared debounceUpdate())
 // ═════════════════════════════════════════════════════════════
-
-/// Encapsulates the debounce state exactly as maintained in main.cpp.
-struct DebounceState {
-    bool     lastRawReading;
-    bool     debouncedState;
-    bool     currentDoorClosed;
-    uint32_t lastDebounceTime;
-};
 
 /// Run one iteration of the debounce algorithm (mirrors main.cpp).
 /// Returns true if the door state changed this tick.

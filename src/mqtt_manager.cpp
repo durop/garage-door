@@ -10,6 +10,7 @@
 #include <time.h>
 #include "config.h"
 #include "mqtt_manager.h"
+#include "door_state.h"
 #include "wifi_manager.h"
 #include "garage_hardware.h"
 
@@ -158,18 +159,12 @@ void MqttManager::loop(bool doorClosed) {
 void MqttManager::publishState(bool doorClosed, bool force) {
     _currentDoorClosed = doorClosed;
 
-    const char* state;
-    if (_inTransit) {
-        bool arrived = _transitOpening ? !doorClosed : doorClosed;
-        if (arrived) {
-            _inTransit = false;
-            state = doorClosed ? "closed" : "open";
-            DEBUG_PRINTF("Door arrived → %s\n", state);
-        } else {
-            state = _transitOpening ? "opening" : "closing";
-        }
-    } else {
-        state = doorClosed ? "closed" : "open";
+    bool transitCompleted = false;
+    const char* state = determineDoorState(doorClosed, _inTransit,
+                                           _transitOpening, transitCompleted);
+    if (transitCompleted) {
+        _inTransit = false;
+        DEBUG_PRINTF("Door arrived → %s\n", state);
     }
 
     // Dedup: skip if the state string hasn't changed since last successful

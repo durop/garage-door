@@ -7,6 +7,7 @@
 #include <esp_task_wdt.h>
 #include "config.h"
 #include "garage_hardware.h"
+#include "debounce.h"
 #include "wifi_manager.h"
 #include "mqtt_manager.h"
 #include "ota_manager.h"
@@ -15,10 +16,7 @@
 #define WDT_TIMEOUT_SEC  30   // reset if loop doesn't run for 30 s
 
 // ─── Door state tracking ────────────────────────────────────
-static bool     currentDoorClosed = true;
-static bool     lastRawReading    = true;
-static bool     debouncedState    = true;
-static uint32_t lastDebounceTime  = 0;
+static DebounceState doorDebounce = { true, true, true, 0 };
 static uint32_t lastStatePublish  = 0;
 static uint32_t bootTime          = 0;
 
@@ -39,10 +37,9 @@ void setup() {
     GarageHardware::init();
 
     // Read initial door state
-    currentDoorClosed = GarageHardware::readDoorClosed();
-    debouncedState    = currentDoorClosed;
-    lastRawReading    = currentDoorClosed;
-    DEBUG_PRINTF("Initial door state: %s\n", currentDoorClosed ? "CLOSED" : "OPEN");
+    bool initState = GarageHardware::readDoorClosed();
+    doorDebounce = { initState, initState, initState, 0 };
+    DEBUG_PRINTF("Initial door state: %s\n", initState ? "CLOSED" : "OPEN");
 
     WifiManager::connectBlocking();   // blocking OK here — we're in setup
     MqttManager::init();
@@ -62,7 +59,7 @@ void loop() {
     WifiManager::ensureConnected();
 
     // ── MQTT keep-alive, reconnect & transit timeout ──
-    MqttManager::loop(currentDoorClosed);
+    MqttManager::loop(doorDebounce.currentDoorClosed);
 
     // ── Status LED — single place that decides the pattern ──
     //    (must be set before GarageHardware::loop() which drives the LED)
@@ -82,24 +79,16 @@ void loop() {
 
     // ── Reed-switch debounce ──
     bool raw = GarageHardware::readDoorClosed();
-    if (raw != lastRawReading) {
-        lastDebounceTime = millis();
-        lastRawReading   = raw;
-    }
-    if ((millis() - lastDebounceTime) > DEBOUNCE_MS) {
-        if (raw != debouncedState) {
-            debouncedState    = raw;
-            currentDoorClosed = debouncedState;
-            DEBUG_PRINTF("Door state changed → %s\n",
-                           currentDoorClosed ? "CLOSED" : "OPEN");
-            MqttManager::publishState(currentDoorClosed, true);
-        }
+    if (debounceUpdate(doorDebounce, raw, millis(), DEBOUNCE_MS)) {
+        DEBUG_PRINTF("Door state changed → %s\n",
+                       doorDebounce.currentDoorClosed ? "CLOSED" : "OPEN");
+        MqttManager::publishState(doorDebounce.currentDoorClosed, true);
     }
 
     // ── Periodic re-publish (in case HA restarted) ──
     if (millis() - lastStatePublish > STATE_PUBLISH_INTERVAL_MS) {
         lastStatePublish = millis();
-        MqttManager::publishState(currentDoorClosed, true);
+        MqttManager::publishState(doorDebounce.currentDoorClosed, true);
         MqttManager::publishAttributes(bootTime);
     }
 }
