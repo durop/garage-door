@@ -12,17 +12,9 @@
 // ─── Helpers ────────────────────────────────────────────────
 static void resetAll() {
     mock_reset();
-    // Re-initialise the module (sets pin modes, clears relay/LED)
+    // Re-initialise the module (sets pin modes, clears relay/LED
+    // and any other state its public API is responsible for)
     GarageHardware::init();
-    // Reset internal statics that init() doesn't touch
-    // (they live inside the GarageHardware namespace in this TU)
-    GarageHardware::_relayActive     = false;
-    GarageHardware::_relayStartTime  = 0;
-    GarageHardware::_lastTriggerTime = 0;
-    GarageHardware::_ledPattern      = GarageHardware::LedPattern::OFF;
-    GarageHardware::_ledPhaseStart   = 0;
-    GarageHardware::_ledPhaseIndex   = 0;
-    GarageHardware::_ledOn           = false;
 }
 
 void setUp(void)    { resetAll(); }
