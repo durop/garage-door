@@ -3,6 +3,10 @@
 A DIY garage door opener/closer using an **ESP32-C3 Mini**, a **reed switch**, and a
 **relay module**, connected to **Home Assistant** via MQTT auto-discovery.
 
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/durop)
+
+If you open the Buy Me a Coffee page on your phone, you can pay with **Google Pay** or **Apple Pay**.
+
 ---
 
 ## Features
@@ -299,6 +303,17 @@ host machine.
 ```bash
 pio test -e native
 ```
+
+### PlatformIO VS Code Test button note
+
+The global **Test** button in the PlatformIO extension may not detect these tests
+in this project layout. If that happens, run tests with:
+
+```bash
+pio test -e native
+```
+
+Or run tests from the **native** environment entry in the PlatformIO panel.
 
 ### Running tests without PlatformIO
 
