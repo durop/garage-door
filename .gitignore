@@ -1,4 +1,4 @@
 .pio/
 .vscode/
 include/config.h
-
+.env

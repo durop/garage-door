@@ -20,8 +20,8 @@
 #endif
 
 // ----- WiFi -----
-#define WIFI_SSID         "FRITZ!Powerline 540E"   // your WiFi SSID
-#define WIFI_PASSWORD     "68030057486799080636"
+#define WIFI_SSID         "your_wifi_ssid"   // your WiFi SSID
+#define WIFI_PASSWORD     "your_wifi_password"
 
 // ----- MQTT Broker -----
 #define MQTT_HOST         "192.168.80.40"   // IP of your HA / MQTT broker
@@ -55,7 +55,7 @@ static const char* MQTT_CA_CERT = nullptr;
 // )EOF";
 
 #define MQTT_USER         "homeassistant"        // leave "" if no auth
-#define MQTT_PASSWORD     "M4psteV0LetvvPvkAYuUqKHbeIfHSlUF"    // leave "" if no auth
+#define MQTT_PASSWORD     "your_mqtt_password"    // leave "" if no auth
 
 // ----- Device Identity -----
 #define DEVICE_NAME       "garage_door"      // used in MQTT topics & HA entity IDs
@@ -85,8 +85,8 @@ static const char* MQTT_CA_CERT = nullptr;
 // ----- OTA (ElegantOTA) -----
 #define OTA_WEB_PORT          80       // HTTP port for the OTA update page
 #define OTA_USERNAME          "ota_garage"          // leave "" for no auth (LAN-only is OK)
-#define OTA_PASSWORD          "PtGuDjmQfivYcZ5123"  // set both to enable Basic-Auth on the OTA page
-#define FIRMWARE_VERSION      "1.2.3"
+#define OTA_PASSWORD          "your_ota_password"  // set both to enable Basic-Auth on the OTA page
+#define FIRMWARE_VERSION      "1.2.4"
 
 // ----- NTP -----
 #define NTP_SERVER        "pool.ntp.org"
